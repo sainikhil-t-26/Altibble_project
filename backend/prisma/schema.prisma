@@ -1,0 +1,132 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String
+  company   String?
+  role      UserRole @default(USER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  products Product[]
+  reports  Report[]
+
+  @@map("users")
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  name        String
+  category    String
+  manufacturer String
+  description String?
+  ingredients String?
+  barcode     String?
+  imageUrl    String?
+  
+  // Transparency data
+  transparencyScore Float?
+  healthScore       Float?
+  environmentalScore Float?
+  socialScore        Float?
+  
+  // Metadata
+  status      ProductStatus @default(DRAFT)
+  submittedBy String
+  submittedAt DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  
+  // Relations
+  user       User         @relation(fields: [submittedBy], references: [id])
+  questions  Question[]
+  answers    Answer[]
+  reports    Report[]
+
+  @@map("products")
+}
+
+model Question {
+  id          String   @id @default(cuid())
+  text        String
+  type        QuestionType
+  category    String
+  isRequired  Boolean  @default(false)
+  order       Int
+  parentId    String?  // For follow-up questions
+  productId   String
+  
+  // Relations
+  product    Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  parent     Question? @relation("QuestionFollowUp", fields: [parentId], references: [id])
+  followUps  Question[] @relation("QuestionFollowUp")
+  answers    Answer[]
+
+  @@map("questions")
+}
+
+model Answer {
+  id         String   @id @default(cuid())
+  value      String
+  questionId String
+  productId  String
+  createdAt  DateTime @default(now())
+  
+  // Relations
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@map("answers")
+}
+
+model Report {
+  id          String   @id @default(cuid())
+  productId   String
+  generatedBy String
+  reportUrl   String
+  score       Float?
+  summary     String?
+  createdAt   DateTime @default(now())
+  
+  // Relations
+  product    Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user       User    @relation(fields: [generatedBy], references: [id])
+
+  @@map("reports")
+}
+
+enum UserRole {
+  ADMIN
+  USER
+  COMPANY
+}
+
+enum ProductStatus {
+  DRAFT
+  SUBMITTED
+  REVIEWED
+  APPROVED
+  REJECTED
+}
+
+enum QuestionType {
+  TEXT
+  TEXTAREA
+  SELECT
+  MULTISELECT
+  BOOLEAN
+  NUMBER
+  DATE
+  FILE
+} 
